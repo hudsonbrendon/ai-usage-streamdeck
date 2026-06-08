@@ -36,4 +36,12 @@ describe("formatCountdown", () => {
     const reset = new Date("2026-06-08T11:59:59Z");
     expect(formatCountdown(reset, now)).toBe("now");
   });
+
+  it("renders 'now' at the exact reset boundary", () => {
+    expect(formatCountdown(new Date("2026-06-08T12:00:00Z"), now)).toBe("now");
+  });
+
+  it("renders 'now' for an invalid reset date", () => {
+    expect(formatCountdown(new Date("not-a-date"), now)).toBe("now");
+  });
 });
