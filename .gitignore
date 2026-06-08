@@ -1,0 +1,7 @@
+node_modules/
+dist/
+com.hudsonbrendon.ai-usage.sdPlugin/bin/
+com.hudsonbrendon.ai-usage.sdPlugin/logs/
+*.streamDeckPlugin
+.DS_Store
+site/
