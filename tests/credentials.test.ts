@@ -16,6 +16,10 @@ describe("parseCodexAuthFile", () => {
   it("throws on malformed JSON", () => {
     expect(() => parseCodexAuthFile("{not json")).toThrow();
   });
+
+  it("throws on valid JSON missing required token fields", () => {
+    expect(() => parseCodexAuthFile(JSON.stringify({ tokens: { refresh_token: "ref" } }))).toThrow(/access_token|account_id/i);
+  });
 });
 
 describe("resolveClaudeToken", () => {
