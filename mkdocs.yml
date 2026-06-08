@@ -1,0 +1,15 @@
+site_name: AI Usage Monitor — Stream Deck
+site_url: https://hudsonbrendon.github.io/ai-usage-streamdeck/
+repo_url: https://github.com/hudsonbrendon/ai-usage-streamdeck
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+nav:
+  - Home: index.md
+  - Install: INSTALL.md
+  - Usage: USAGE.md
+  - Providers: PROVIDERS.md
+  - Development: DEVELOPMENT.md
+  - Troubleshooting: TROUBLESHOOTING.md
