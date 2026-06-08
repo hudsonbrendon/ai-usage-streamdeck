@@ -74,11 +74,15 @@ export abstract class BaseUsageAction extends SingletonAction {
 
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     const action = ev.action as unknown as ActionLike;
+    // Prime the settings cache from persisted global settings before the first render, so the
+    // initial paint already uses the real threshold/interval. Bracket the read with
+    // pendingSelfWrites so its echo is absorbed by the listener instead of driving a second,
+    // redundant refresh. (refresh() itself never reads global settings — see class doc.)
+    this.pendingSelfWrites++;
+    const stored = await streamDeck.settings.getGlobalSettings<Partial<GlobalSettings>>();
+    this.settings = { ...DEFAULT_GLOBAL_SETTINGS, ...stored };
     this.startTimer(action);
     await this.refresh(action);
-    // Seed/refresh the settings cache. Its echo lands in the listener above, which then
-    // re-renders with the real settings. (refresh() itself never reads global settings.)
-    void streamDeck.settings.getGlobalSettings();
   }
 
   override onWillDisappear(ev: WillDisappearEvent): void {

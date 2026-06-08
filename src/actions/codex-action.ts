@@ -29,6 +29,7 @@ export class CodexAction extends BaseUsageAction {
           if (!isAuthError || !creds.refreshToken) throw err;
 
           const tok = await refreshCodexToken(creds.refreshToken);
+          // accountId is stable across OpenAI token rotations, so reusing the captured value is safe.
           await this.persistGlobalSettings({
             codexAccessToken: tok.accessToken,
             codexRefreshToken: tok.refreshToken ?? creds.refreshToken,
