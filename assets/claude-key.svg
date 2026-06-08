@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+  <rect width="144" height="144" fill="#1a1a1a"/>
+  <text x="72" y="60" fill="#d97757" font-size="20" font-weight="bold" font-family="sans-serif" text-anchor="middle">CLAUDE</text>
+  <text x="72" y="92" fill="#888" font-size="13" font-family="sans-serif" text-anchor="middle">tap to refresh</text>
+</svg>
