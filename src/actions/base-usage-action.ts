@@ -1,4 +1,4 @@
-import streamDeck, { LogLevel } from "@elgato/streamdeck";
+import streamDeck, { SingletonAction } from "@elgato/streamdeck";
 import type {
   WillAppearEvent,
   WillDisappearEvent,
@@ -16,61 +16,94 @@ import {
 /** Builds a live Provider from current global settings, or null if creds are missing. */
 export type ProviderFactory = (settings: GlobalSettings) => Promise<Provider | null>;
 
-/** Minimal interface satisfied by both KeyAction and DialAction. */
+/** Minimal surface used by these keys; satisfied by the SDK's KeyAction. */
 interface ActionLike {
   id: string;
+  isKey(): boolean;
   setImage(image?: string): Promise<void>;
   setTitle(title: string): Promise<void>;
   showAlert(): Promise<void>;
 }
 
-import { SingletonAction } from "@elgato/streamdeck";
-
 /**
  * Base for the per-provider keys: polls usage on an interval, renders it as an SVG
  * key image, and alerts when a window crosses the threshold.
+ *
+ * Settings are kept in a local cache that is updated from the `didReceiveGlobalSettings`
+ * event payload. `refresh()` reads the cache and never calls `getGlobalSettings()` — that
+ * matters because the SDK fires the persistent `onDidReceiveGlobalSettings` listener on the
+ * response to *every* `getGlobalSettings()` request, so refreshing through a settings read
+ * would feed back into the listener and spin into a refresh storm.
  */
 export abstract class BaseUsageAction extends SingletonAction {
   protected abstract readonly providerId: ProviderId;
   protected abstract makeProvider: ProviderFactory;
 
   private timers = new Map<string, ReturnType<typeof setInterval>>();
+  private settings: GlobalSettings = { ...DEFAULT_GLOBAL_SETTINGS };
+  /** Count of our own setGlobalSettings writes whose echo should not trigger a refresh. */
+  private pendingSelfWrites = 0;
 
   constructor() {
     super();
-    // Re-render all visible instances when the global settings change (e.g. from property inspector).
-    streamDeck.settings.onDidReceiveGlobalSettings(() => {
+    streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
+      this.settings = { ...DEFAULT_GLOBAL_SETTINGS, ...(ev.settings as Partial<GlobalSettings>) };
+      if (this.pendingSelfWrites > 0) {
+        // Echo of a write we just made (e.g. a rotated Codex token): cache is now updated,
+        // but do not re-render — that would re-enter makeProvider and could rotate again.
+        this.pendingSelfWrites--;
+        return;
+      }
+      // A genuine external change (property inspector, or our seeding read at appear):
+      // restart timers with any new interval and re-render every visible instance.
       for (const action of this.actions) {
-        void this.refresh(action as ActionLike);
+        const a = action as unknown as ActionLike;
+        this.startTimer(a);
+        void this.refresh(a);
       }
     });
   }
 
+  /** Persist a global-settings patch, suppressing the echo it triggers. */
+  protected async persistGlobalSettings(patch: Partial<GlobalSettings>): Promise<void> {
+    this.pendingSelfWrites++;
+    const next = { ...this.settings, ...patch };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await streamDeck.settings.setGlobalSettings(next as any);
+  }
+
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-    await this.refresh(ev.action as ActionLike);
-    const settings = await this.getSettings();
-    const intervalMs = Math.max(30, settings.refreshSeconds) * 1000;
-    const timer = setInterval(() => void this.refresh(ev.action as ActionLike), intervalMs);
-    this.timers.set(ev.action.id, timer);
+    const action = ev.action as unknown as ActionLike;
+    this.startTimer(action);
+    await this.refresh(action);
+    // Seed/refresh the settings cache. Its echo lands in the listener above, which then
+    // re-renders with the real settings. (refresh() itself never reads global settings.)
+    void streamDeck.settings.getGlobalSettings();
   }
 
   override onWillDisappear(ev: WillDisappearEvent): void {
-    const t = this.timers.get(ev.action.id);
-    if (t) clearInterval(t);
-    this.timers.delete(ev.action.id);
+    this.clearTimer(ev.action.id);
   }
 
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    await this.refresh(ev.action as ActionLike);
+    await this.refresh(ev.action as unknown as ActionLike);
   }
 
-  private async getSettings(): Promise<GlobalSettings> {
-    const stored = await streamDeck.settings.getGlobalSettings<Partial<GlobalSettings>>();
-    return { ...DEFAULT_GLOBAL_SETTINGS, ...stored };
+  private startTimer(action: ActionLike): void {
+    this.clearTimer(action.id);
+    const intervalMs = Math.max(30, this.settings.refreshSeconds) * 1000;
+    this.timers.set(action.id, setInterval(() => void this.refresh(action), intervalMs));
+  }
+
+  private clearTimer(id: string): void {
+    const t = this.timers.get(id);
+    if (t) clearInterval(t);
+    this.timers.delete(id);
   }
 
   private async refresh(action: ActionLike): Promise<void> {
-    const settings = await this.getSettings();
+    if (!action.isKey()) return; // these actions render via setImage/setTitle (Keypad only)
+    const settings = this.settings;
     try {
       const provider = await this.makeProvider(settings);
       if (!provider) {
