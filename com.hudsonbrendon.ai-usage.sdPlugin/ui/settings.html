@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>AI Usage Monitor</title>
+    <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+  </head>
+  <body>
+    <sdpi-item label="Alert at (%)">
+      <sdpi-range setting="alertThreshold" min="0" max="100" step="5" default="80" global showlabels></sdpi-range>
+    </sdpi-item>
+    <sdpi-item label="Refresh (sec)">
+      <sdpi-range setting="refreshSeconds" min="30" max="600" step="30" default="120" global showlabels></sdpi-range>
+    </sdpi-item>
+
+    <details>
+      <summary>Manual credentials (optional — overrides local CLI files)</summary>
+      <sdpi-item label="Claude token">
+        <sdpi-password setting="claudeToken" global placeholder="sk-ant-oat01-…"></sdpi-password>
+      </sdpi-item>
+      <sdpi-item label="Codex access token">
+        <sdpi-password setting="codexAccessToken" global></sdpi-password>
+      </sdpi-item>
+      <sdpi-item label="Codex refresh token">
+        <sdpi-password setting="codexRefreshToken" global placeholder="optional — enables auto-rotation"></sdpi-password>
+      </sdpi-item>
+      <sdpi-item label="Codex account id">
+        <sdpi-textfield setting="codexAccountId" global></sdpi-textfield>
+      </sdpi-item>
+    </details>
+
+    <p style="font-size:11px;color:#888;padding:0 8px">
+      Leave credentials blank to auto-read <code>~/.codex/auth.json</code> and the Claude CLI credentials on this machine.
+    </p>
+  </body>
+</html>
