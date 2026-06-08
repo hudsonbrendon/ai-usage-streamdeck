@@ -14,6 +14,7 @@ describe("parseClaudeHeaders", () => {
     expect(snap.primary.usedPercent).toBeCloseTo(41);
     expect(snap.primary.resetAt.toISOString()).toBe("2026-06-08T13:26:00.000Z");
     expect(snap.secondary.usedPercent).toBeCloseTo(15);
+    expect(snap.secondary.resetAt.toISOString()).toBe("2026-06-13T11:00:00.000Z");
   });
 
   it("throws when both utilization headers are absent", () => {

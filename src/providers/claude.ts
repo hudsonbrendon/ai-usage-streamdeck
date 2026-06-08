@@ -21,10 +21,11 @@ export function parseClaudeHeaders(headers: Headers, fetchedAt: Date = new Date(
   if (u5 === null && u7 === null) {
     throw new Error("Claude: no usage headers in response");
   }
+  const reset = (raw: string | null) => (raw ? new Date(raw) : fetchedAt);
   return {
     provider: "claude",
-    primary: { usedPercent: Number(u5 ?? 0) * 100, resetAt: new Date(headers.get(H.p5r) ?? fetchedAt) },
-    secondary: { usedPercent: Number(u7 ?? 0) * 100, resetAt: new Date(headers.get(H.s7r) ?? fetchedAt) },
+    primary: { usedPercent: Number(u5 ?? 0) * 100, resetAt: reset(headers.get(H.p5r)) },
+    secondary: { usedPercent: Number(u7 ?? 0) * 100, resetAt: reset(headers.get(H.s7r)) },
     fetchedAt,
   };
 }
