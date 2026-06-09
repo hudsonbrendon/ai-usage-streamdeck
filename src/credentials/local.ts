@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { execFileSync } from "node:child_process";
+import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import type { GlobalSettings } from "../core/types.js";
 import type { CodexCreds } from "../providers/codex.js";
@@ -7,6 +8,22 @@ import type { CodexCreds } from "../providers/codex.js";
 /** Reads a file's UTF-8 contents; throws if missing. Injectable for tests. */
 export type FileReader = (path: string) => string;
 const defaultReader: FileReader = (p) => readFileSync(p, "utf-8");
+
+/** Reads the Claude Code credentials JSON from the macOS Keychain. Injectable for tests. */
+export type KeychainReader = () => string;
+const defaultKeychainReader: KeychainReader = () => {
+  if (platform() !== "darwin") throw new Error("Keychain only available on macOS");
+  return execFileSync(
+    "security",
+    ["find-generic-password", "-s", "Claude Code-credentials", "-w"],
+    { encoding: "utf-8" },
+  );
+};
+
+function tokenFromCredentialsJson(contents: string): string | undefined {
+  const json = JSON.parse(contents) as { claudeAiOauth?: { accessToken?: string } };
+  return json.claudeAiOauth?.accessToken;
+}
 
 export interface CodexFileCreds {
   accessToken: string;
@@ -31,17 +48,30 @@ const CLAUDE_CREDENTIAL_PATHS = [
   join(homedir(), ".config", "claude", ".credentials.json"),
 ];
 
-/** Resolve the Claude OAuth token: manual override → local credentials file → null. */
-export function resolveClaudeToken(settings: Partial<GlobalSettings>, reader: FileReader = defaultReader): string | null {
+/**
+ * Resolve the Claude OAuth token: manual override → local credentials file →
+ * macOS Keychain (`Claude Code-credentials`) → null. On macOS the Claude CLI stores its
+ * credentials in the Keychain rather than a file, so the Keychain is the usual source there.
+ */
+export function resolveClaudeToken(
+  settings: Partial<GlobalSettings>,
+  reader: FileReader = defaultReader,
+  keychain: KeychainReader = defaultKeychainReader,
+): string | null {
   if (settings.claudeToken) return settings.claudeToken;
   for (const path of CLAUDE_CREDENTIAL_PATHS) {
     try {
-      const json = JSON.parse(reader(path)) as { claudeAiOauth?: { accessToken?: string } };
-      const token = json.claudeAiOauth?.accessToken;
+      const token = tokenFromCredentialsJson(reader(path));
       if (token) return token;
     } catch {
       // try next path
     }
+  }
+  try {
+    const token = tokenFromCredentialsJson(keychain());
+    if (token) return token;
+  } catch {
+    // keychain unavailable or empty
   }
   return null;
 }

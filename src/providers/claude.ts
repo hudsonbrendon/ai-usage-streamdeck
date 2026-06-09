@@ -21,7 +21,13 @@ export function parseClaudeHeaders(headers: Headers, fetchedAt: Date = new Date(
   if (u5 === null && u7 === null) {
     throw new Error("Claude: no usage headers in response");
   }
-  const reset = (raw: string | null) => (raw ? new Date(raw) : fetchedAt);
+  // The reset headers are Unix epoch seconds (e.g. "1780968000"); older docs showed ISO 8601,
+  // so accept both: a purely-numeric value is epoch seconds, anything else is an ISO string.
+  const reset = (raw: string | null): Date => {
+    if (!raw) return fetchedAt;
+    const epoch = Number(raw);
+    return Number.isFinite(epoch) ? new Date(epoch * 1000) : new Date(raw);
+  };
   return {
     provider: "claude",
     primary: { usedPercent: Number(u5 ?? 0) * 100, resetAt: reset(headers.get(H.p5r)) },

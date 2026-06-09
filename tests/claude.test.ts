@@ -17,6 +17,18 @@ describe("parseClaudeHeaders", () => {
     expect(snap.secondary.resetAt.toISOString()).toBe("2026-06-13T11:00:00.000Z");
   });
 
+  it("parses Unix-epoch-seconds reset headers (real API format)", () => {
+    const headers = new Headers({
+      "anthropic-ratelimit-unified-5h-utilization": "0.41",
+      "anthropic-ratelimit-unified-5h-reset": "1780968000",
+      "anthropic-ratelimit-unified-7d-utilization": "0.95",
+      "anthropic-ratelimit-unified-7d-reset": "1781010000",
+    });
+    const snap = parseClaudeHeaders(headers, new Date("2026-06-08T12:00:00Z"));
+    expect(snap.primary.resetAt.getTime()).toBe(1780968000 * 1000);
+    expect(snap.secondary.resetAt.getTime()).toBe(1781010000 * 1000);
+  });
+
   it("throws when both utilization headers are absent", () => {
     const headers = new Headers({});
     expect(() => parseClaudeHeaders(headers, new Date())).toThrow(/no usage/i);

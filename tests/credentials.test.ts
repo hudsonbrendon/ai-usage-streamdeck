@@ -29,11 +29,20 @@ describe("resolveClaudeToken", () => {
 
   it("falls back to reading the credentials file", () => {
     const reader = () => JSON.stringify({ claudeAiOauth: { accessToken: "sk-ant-oat01-file" } });
-    expect(resolveClaudeToken({}, reader)).toBe("sk-ant-oat01-file");
+    const keychain = () => { throw new Error("should not reach keychain"); };
+    expect(resolveClaudeToken({}, reader, keychain)).toBe("sk-ant-oat01-file");
+  });
+
+  it("falls back to the macOS Keychain when no file is present", () => {
+    const noFile = () => { throw new Error("no file"); };
+    const keychain = () => JSON.stringify({ claudeAiOauth: { accessToken: "sk-ant-oat01-keychain" } });
+    expect(resolveClaudeToken({}, noFile, keychain)).toBe("sk-ant-oat01-keychain");
   });
 
   it("returns null when nothing is available", () => {
-    expect(resolveClaudeToken({}, () => { throw new Error("no file"); })).toBeNull();
+    const noFile = () => { throw new Error("no file"); };
+    const noKeychain = () => { throw new Error("no keychain"); };
+    expect(resolveClaudeToken({}, noFile, noKeychain)).toBeNull();
   });
 });
 

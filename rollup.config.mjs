@@ -17,5 +17,5 @@ export default {
     nodeResolve({ browser: false, exportConditions: ["node"], preferBuiltins: true }),
     commonjs(),
   ],
-  external: ["node:fs", "node:fs/promises", "node:os", "node:path"],
+  external: ["node:fs", "node:fs/promises", "node:os", "node:path", "node:child_process"],
 };
