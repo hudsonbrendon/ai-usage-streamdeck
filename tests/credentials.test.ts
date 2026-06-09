@@ -23,14 +23,22 @@ describe("parseCodexAuthFile", () => {
 });
 
 describe("resolveClaudeToken", () => {
-  it("prefers the manual override when present", () => {
-    expect(resolveClaudeToken({ claudeToken: "sk-ant-oat01-manual" }, () => "ignored")).toBe("sk-ant-oat01-manual");
+  it("prefers the auto-read file over a manual paste (manual is only a fallback)", () => {
+    const reader = () => JSON.stringify({ claudeAiOauth: { accessToken: "sk-ant-oat01-file" } });
+    const keychain = () => { throw new Error("should not reach keychain"); };
+    expect(resolveClaudeToken({ claudeToken: "sk-ant-oat01-manual" }, reader, keychain)).toBe("sk-ant-oat01-file");
   });
 
-  it("falls back to reading the credentials file", () => {
+  it("reads the credentials file when there is no manual paste", () => {
     const reader = () => JSON.stringify({ claudeAiOauth: { accessToken: "sk-ant-oat01-file" } });
     const keychain = () => { throw new Error("should not reach keychain"); };
     expect(resolveClaudeToken({}, reader, keychain)).toBe("sk-ant-oat01-file");
+  });
+
+  it("falls back to the manual paste only when auto-read finds nothing", () => {
+    const noFile = () => { throw new Error("no file"); };
+    const noKeychain = () => { throw new Error("no keychain"); };
+    expect(resolveClaudeToken({ claudeToken: "sk-ant-oat01-manual" }, noFile, noKeychain)).toBe("sk-ant-oat01-manual");
   });
 
   it("falls back to the macOS Keychain when no file is present", () => {
@@ -47,17 +55,26 @@ describe("resolveClaudeToken", () => {
 });
 
 describe("resolveCodexCreds", () => {
-  it("prefers manual overrides", () => {
+  it("prefers the auth file over manual overrides (manual is only a fallback)", () => {
     const creds = resolveCodexCreds(
       { codexAccessToken: "m-acc", codexAccountId: "m-org", codexRefreshToken: "m-ref" },
       () => codexAuthJson,
     );
-    expect(creds).toEqual({ accessToken: "m-acc", accountId: "m-org", refreshToken: "m-ref" });
+    expect(creds).toEqual({ accessToken: "acc-123", accountId: "org_789", refreshToken: "ref-456" });
   });
 
-  it("falls back to the auth file", () => {
+  it("reads the auth file when there are no manual overrides", () => {
     const creds = resolveCodexCreds({}, () => codexAuthJson);
     expect(creds).toEqual({ accessToken: "acc-123", accountId: "org_789", refreshToken: "ref-456" });
+  });
+
+  it("falls back to manual overrides only when the auth file is unavailable", () => {
+    const noFile = () => { throw new Error("no file"); };
+    const creds = resolveCodexCreds(
+      { codexAccessToken: "m-acc", codexAccountId: "m-org", codexRefreshToken: "m-ref" },
+      noFile,
+    );
+    expect(creds).toEqual({ accessToken: "m-acc", accountId: "m-org", refreshToken: "m-ref" });
   });
 
   it("returns null when nothing is available", () => {

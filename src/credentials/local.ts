@@ -49,16 +49,16 @@ const CLAUDE_CREDENTIAL_PATHS = [
 ];
 
 /**
- * Resolve the Claude OAuth token: manual override → local credentials file →
- * macOS Keychain (`Claude Code-credentials`) → null. On macOS the Claude CLI stores its
- * credentials in the Keychain rather than a file, so the Keychain is the usual source there.
+ * Resolve the Claude OAuth token: local credentials file → macOS Keychain
+ * (`Claude Code-credentials`) → manual paste → null. Auto-read is primary; the manually
+ * pasted token is only a fallback for machines without the Claude CLI, so a stale paste can
+ * never shadow a working local login. On macOS the CLI stores its credential in the Keychain.
  */
 export function resolveClaudeToken(
   settings: Partial<GlobalSettings>,
   reader: FileReader = defaultReader,
   keychain: KeychainReader = defaultKeychainReader,
 ): string | null {
-  if (settings.claudeToken) return settings.claudeToken;
   for (const path of CLAUDE_CREDENTIAL_PATHS) {
     try {
       const token = tokenFromCredentialsJson(reader(path));
@@ -73,16 +73,27 @@ export function resolveClaudeToken(
   } catch {
     // keychain unavailable or empty
   }
+  if (settings.claudeToken) return settings.claudeToken;
   return null;
 }
 
 const CODEX_AUTH_PATH = join(homedir(), ".codex", "auth.json");
 
-/** Resolve Codex credentials: manual overrides → ~/.codex/auth.json → null. */
+/**
+ * Resolve Codex credentials: ~/.codex/auth.json → manual paste → null. Auto-read is primary;
+ * the manually pasted credentials are only a fallback, so a stale paste can never shadow a
+ * working `codex login`.
+ */
 export function resolveCodexCreds(
   settings: Partial<GlobalSettings>,
   reader: FileReader = defaultReader,
 ): (CodexCreds & { refreshToken?: string }) | null {
+  try {
+    const c = parseCodexAuthFile(reader(CODEX_AUTH_PATH));
+    return { accessToken: c.accessToken, accountId: c.accountId, refreshToken: c.refreshToken };
+  } catch {
+    // fall through to manual paste
+  }
   if (settings.codexAccessToken && settings.codexAccountId) {
     return {
       accessToken: settings.codexAccessToken,
@@ -90,10 +101,5 @@ export function resolveCodexCreds(
       refreshToken: settings.codexRefreshToken,
     };
   }
-  try {
-    const c = parseCodexAuthFile(reader(CODEX_AUTH_PATH));
-    return { accessToken: c.accessToken, accountId: c.accountId, refreshToken: c.refreshToken };
-  } catch {
-    return null;
-  }
+  return null;
 }

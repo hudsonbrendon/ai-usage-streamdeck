@@ -1,0 +1,9 @@
+2026-06-09T00:53:51.289Z ERROR Process encountered uncaught exception 
+Error: Failed to read manifest.json as the file does not exist.
+    at readManifest (file:///Users/hudsonbrendon/Github/ai-usage-streamdeck/com.hudsonbrendon.ai-usage.sdPlugin/bin/plugin.js:6598:15)
+    at getManifest (file:///Users/hudsonbrendon/Github/ai-usage-streamdeck/com.hudsonbrendon.ai-usage.sdPlugin/bin/plugin.js:6589:28)
+    at get manifest (file:///Users/hudsonbrendon/Github/ai-usage-streamdeck/com.hudsonbrendon.ai-usage.sdPlugin/bin/plugin.js:8276:16)
+    at file:///Users/hudsonbrendon/Github/ai-usage-streamdeck/com.hudsonbrendon.ai-usage.sdPlugin/bin/plugin.js:8318:16
+    at ModuleJob.run (node:internal/modules/esm/module_job:272:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:580:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:98:5)

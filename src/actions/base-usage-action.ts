@@ -106,17 +106,26 @@ export abstract class BaseUsageAction extends SingletonAction {
   }
 
   private async refresh(action: ActionLike): Promise<void> {
-    if (!action.isKey()) return; // these actions render via setImage/setTitle (Keypad only)
+    if (!action.isKey()) {
+      streamDeck.logger.info(`${this.providerId}: action is not a key, skipping`);
+      return;
+    }
     const settings = this.settings;
     try {
       const provider = await this.makeProvider(settings);
       if (!provider) {
+        streamDeck.logger.info(`${this.providerId}: no credentials resolved`);
         await action.setTitle(`${this.providerId}\nno creds`);
         return;
       }
       const snapshot: UsageSnapshot = await provider.fetchUsage();
+      streamDeck.logger.info(
+        `${this.providerId}: usage ok — 5h=${Math.round(snapshot.primary.usedPercent)}% 7d=${Math.round(snapshot.secondary.usedPercent)}%`,
+      );
+      const svg = renderUsageSvg(snapshot, { threshold: settings.alertThreshold });
       await action.setTitle("");
-      await action.setImage(renderUsageSvg(snapshot, { threshold: settings.alertThreshold }));
+      await action.setImage(svgDataUri(svg));
+      streamDeck.logger.info(`${this.providerId}: image updated`);
       const crossed =
         snapshot.primary.usedPercent >= settings.alertThreshold ||
         snapshot.secondary.usedPercent >= settings.alertThreshold;
@@ -126,4 +135,9 @@ export abstract class BaseUsageAction extends SingletonAction {
       await action.setTitle(`${this.providerId}\nerror`);
     }
   }
+}
+
+/** Encode an SVG string as a base64 data URI — the form Stream Deck reliably renders. */
+function svgDataUri(svg: string): string {
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf-8").toString("base64")}`;
 }
