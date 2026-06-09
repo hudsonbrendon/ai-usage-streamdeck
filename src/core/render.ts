@@ -1,5 +1,5 @@
 import { formatCountdown, formatPercent } from "./format.js";
-import type { DisplayMode, ProviderId, UsageSnapshot, UsageWindow } from "./types.js";
+import type { DisplayMode, ProviderId, UsageSnapshot, UsageWindow, WindowChoice } from "./types.js";
 
 const TRACK_PX = 110; // width of a full usage bar
 const BAR_X = 17;
@@ -13,8 +13,10 @@ const PROVIDER_COLOR: Record<ProviderId, string> = {
 export interface RenderOptions {
   threshold: number; // 0–100
   now?: Date;
-  /** Key layout. "large" = one big dominant window; "compact" = both windows as bars. */
+  /** Key layout. "large" = one big window; "compact" = both windows as bars. */
   mode?: DisplayMode;
+  /** Which window the large layout shows. Defaults to the dominant (most-utilized) one. */
+  window?: WindowChoice;
 }
 
 const clamp = (pct: number) => Math.max(0, Math.min(100, pct));
@@ -43,13 +45,23 @@ function renderCompact(snapshot: UsageSnapshot, accent: string, name: string, th
   ${compactBar("7D", snapshot.secondary, 104, accent, threshold, now)}`;
 }
 
-/** Big single-number layout: shows the most-utilized ("dominant") window. */
-function renderLarge(snapshot: UsageSnapshot, accent: string, name: string, threshold: number, now: Date): string {
+/** Big single-number layout: shows one window — a fixed choice, or the dominant one. */
+function renderLarge(
+  snapshot: UsageSnapshot,
+  accent: string,
+  name: string,
+  threshold: number,
+  now: Date,
+  window: WindowChoice,
+): string {
   const p = clamp(snapshot.primary.usedPercent);
   const s = clamp(snapshot.secondary.usedPercent);
-  const dom = p >= s
-    ? { pct: p, label: "5H", win: snapshot.primary }
-    : { pct: s, label: "7D", win: snapshot.secondary };
+  const session = { pct: p, label: "5H", win: snapshot.primary };
+  const weekly = { pct: s, label: "7D", win: snapshot.secondary };
+  const dom =
+    window === "session" ? session
+    : window === "weekly" ? weekly
+    : p >= s ? session : weekly;
   const hot = dom.pct >= threshold;
   const barColor = hot ? ALERT_COLOR : accent;
   const numColor = hot ? ALERT_COLOR : "#fff";
@@ -67,7 +79,7 @@ export function renderUsageSvg(snapshot: UsageSnapshot, opts: RenderOptions): st
   const name = snapshot.provider.toUpperCase();
   const body = opts.mode === "compact"
     ? renderCompact(snapshot, accent, name, opts.threshold, now)
-    : renderLarge(snapshot, accent, name, opts.threshold, now);
+    : renderLarge(snapshot, accent, name, opts.threshold, now, opts.window ?? "dominant");
   return `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
   <rect width="144" height="144" fill="#1a1a1a"/>${body}
 </svg>`;

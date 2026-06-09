@@ -3,14 +3,17 @@ import type {
   WillAppearEvent,
   WillDisappearEvent,
   KeyDownEvent,
+  DidReceiveSettingsEvent,
 } from "@elgato/streamdeck";
 import { renderUsageSvg } from "../core/render.js";
 import {
   DEFAULT_GLOBAL_SETTINGS,
   type GlobalSettings,
+  type KeySettings,
   type Provider,
   type ProviderId,
   type UsageSnapshot,
+  type WindowChoice,
 } from "../core/types.js";
 
 /** Builds a live Provider from current global settings, or null if creds are missing. */
@@ -35,12 +38,14 @@ interface ActionLike {
  * response to *every* `getGlobalSettings()` request, so refreshing through a settings read
  * would feed back into the listener and spin into a refresh storm.
  */
-export abstract class BaseUsageAction extends SingletonAction {
+export abstract class BaseUsageAction extends SingletonAction<KeySettings> {
   protected abstract readonly providerId: ProviderId;
   protected abstract makeProvider: ProviderFactory;
 
   private timers = new Map<string, ReturnType<typeof setInterval>>();
   private settings: GlobalSettings = { ...DEFAULT_GLOBAL_SETTINGS };
+  /** Per-key window choice, cached from each instance's settings (keyed by action.id). */
+  private windows = new Map<string, WindowChoice>();
   /** Count of our own setGlobalSettings writes whose echo should not trigger a refresh. */
   private pendingSelfWrites = 0;
 
@@ -72,8 +77,10 @@ export abstract class BaseUsageAction extends SingletonAction {
     await streamDeck.settings.setGlobalSettings(next as any);
   }
 
-  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+  override async onWillAppear(ev: WillAppearEvent<KeySettings>): Promise<void> {
     const action = ev.action as unknown as ActionLike;
+    // Cache this key's window choice from the event payload (no getSettings() call, so no echo).
+    this.windows.set(action.id, ev.payload.settings?.window ?? "dominant");
     // Prime the settings cache from persisted global settings before the first render, so the
     // initial paint already uses the real threshold/interval. Bracket the read with
     // pendingSelfWrites so its echo is absorbed by the listener instead of driving a second,
@@ -85,8 +92,16 @@ export abstract class BaseUsageAction extends SingletonAction {
     await this.refresh(action);
   }
 
+  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<KeySettings>): Promise<void> {
+    // The user changed this key's window in the Property Inspector — update the cache and repaint.
+    const action = ev.action as unknown as ActionLike;
+    this.windows.set(action.id, ev.payload.settings?.window ?? "dominant");
+    await this.refresh(action);
+  }
+
   override onWillDisappear(ev: WillDisappearEvent): void {
     this.clearTimer(ev.action.id);
+    this.windows.delete(ev.action.id);
   }
 
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
@@ -122,7 +137,8 @@ export abstract class BaseUsageAction extends SingletonAction {
       streamDeck.logger.info(
         `${this.providerId}: usage ok — 5h=${Math.round(snapshot.primary.usedPercent)}% 7d=${Math.round(snapshot.secondary.usedPercent)}%`,
       );
-      const svg = renderUsageSvg(snapshot, { threshold: settings.alertThreshold, mode: settings.displayMode });
+      const window = this.windows.get(action.id) ?? "dominant";
+      const svg = renderUsageSvg(snapshot, { threshold: settings.alertThreshold, mode: settings.displayMode, window });
       await action.setTitle("");
       await action.setImage(svgDataUri(svg));
       streamDeck.logger.info(`${this.providerId}: image updated`);
