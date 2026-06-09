@@ -1,5 +1,8 @@
 export type ProviderId = "claude" | "codex";
 
+/** Key layout: "large" = one big dominant-window number; "compact" = both windows as bars. */
+export type DisplayMode = "large" | "compact";
+
 /** One rate-limit window. usedPercent is 0–100. */
 export interface UsageWindow {
   usedPercent: number;
@@ -25,11 +28,14 @@ export interface GlobalSettings {
   alertThreshold: number;
   /** Poll interval in seconds. */
   refreshSeconds: number;
+  /** Key layout. */
+  displayMode: DisplayMode;
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   alertThreshold: 80,
   refreshSeconds: 120,
+  displayMode: "large",
 };
 
 export interface Provider {

@@ -122,7 +122,7 @@ export abstract class BaseUsageAction extends SingletonAction {
       streamDeck.logger.info(
         `${this.providerId}: usage ok — 5h=${Math.round(snapshot.primary.usedPercent)}% 7d=${Math.round(snapshot.secondary.usedPercent)}%`,
       );
-      const svg = renderUsageSvg(snapshot, { threshold: settings.alertThreshold });
+      const svg = renderUsageSvg(snapshot, { threshold: settings.alertThreshold, mode: settings.displayMode });
       await action.setTitle("");
       await action.setImage(svgDataUri(svg));
       streamDeck.logger.info(`${this.providerId}: image updated`);

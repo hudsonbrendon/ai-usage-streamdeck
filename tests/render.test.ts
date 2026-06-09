@@ -17,22 +17,47 @@ describe("renderUsageSvg", () => {
     expect(svg).toContain('height="144"');
   });
 
-  it("includes both percents, the provider label, and countdowns", () => {
-    const svg = renderUsageSvg(snapshot, { threshold: 80, now: snapshot.fetchedAt });
-    expect(svg).toContain("41%");
-    expect(svg).toContain("15%");
-    expect(svg).toContain("CLAUDE");
-    expect(svg).toContain("1h26m");
-    expect(svg).toContain("4d23h");
+  describe("compact mode", () => {
+    it("includes both percents, the provider label, and countdowns", () => {
+      const svg = renderUsageSvg(snapshot, { threshold: 80, now: snapshot.fetchedAt, mode: "compact" });
+      expect(svg).toContain("41%");
+      expect(svg).toContain("15%");
+      expect(svg).toContain("CLAUDE");
+      expect(svg).toContain("1h26m");
+      expect(svg).toContain("4d23h");
+    });
+
+    it("makes a bar width proportional to usage (0–110px track)", () => {
+      const svg = renderUsageSvg(snapshot, { threshold: 80, now: snapshot.fetchedAt, mode: "compact" });
+      // 41% of the 110px track ≈ 45px
+      expect(svg).toContain('width="45"');
+    });
   });
 
-  it("makes a bar width proportional to usage (0–110px track)", () => {
-    const svg = renderUsageSvg(snapshot, { threshold: 80, now: snapshot.fetchedAt });
-    // 41% of the 110px track ≈ 45px
-    expect(svg).toContain('width="45"');
+  describe("large mode (default)", () => {
+    it("shows only the dominant window's percent + label, big", () => {
+      // primary 41% > secondary 15% → dominant is the 5H window.
+      const svg = renderUsageSvg(snapshot, { threshold: 80, now: snapshot.fetchedAt });
+      expect(svg).toContain("41%");
+      expect(svg).not.toContain("15%");
+      expect(svg).toContain("CLAUDE");
+      expect(svg).toContain("5H · 1h26m");
+      expect(svg).toContain('font-size="52"'); // the big number
+    });
+
+    it("picks the secondary window when it is the more utilized one", () => {
+      const weeklyHeavy: UsageSnapshot = {
+        ...snapshot,
+        primary: { usedPercent: 10, resetAt: snapshot.primary.resetAt },
+        secondary: { usedPercent: 96, resetAt: snapshot.secondary.resetAt },
+      };
+      const svg = renderUsageSvg(weeklyHeavy, { threshold: 80, now: snapshot.fetchedAt });
+      expect(svg).toContain("96%");
+      expect(svg).toContain("7D · 4d23h");
+    });
   });
 
-  it("uses the alert color when a window is at/above threshold", () => {
+  it("uses the alert color when the dominant window is at/above threshold", () => {
     const hot: UsageSnapshot = {
       ...snapshot,
       primary: { usedPercent: 92, resetAt: snapshot.primary.resetAt },
