@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="AI Usage Monitor — Stream Deck Plugin" width="640">
+</p>
+
 <h1 align="center">AI Usage Monitor — Stream Deck Plugin</h1>
 
 <p align="center">Live Claude and Codex subscription usage on your Stream Deck keys — rolling 5-hour and weekly windows, at a glance.</p>
